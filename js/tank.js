@@ -60,23 +60,124 @@ export class Tank {
         return b;
     }
 
-    canMoveTo(tx, ty, gameMap) {
-        const hs = this.size / 2 - 2;
-        const corners = [
-            { x: tx - hs, y: ty - hs },
-            { x: tx + hs, y: ty - hs },
-            { x: tx - hs, y: ty + hs },
-            { x: tx + hs, y: ty + hs }
-        ];
+    moveInGrid(dir, moveStep, gameMap) {
+        this.angle = dir;
 
-        for (const pt of corners) {
-            const col = Math.floor(pt.x / TILE_SIZE);
-            const row = Math.floor(pt.y / TILE_SIZE);
-            if (gameMap.isBlockedForMovement(col, row)) {
+        if (dir === DIRECTION.UP) {
+            // 垂直对齐：严格锁在最近的整列中心
+            const col = Math.max(0, Math.min(MAP_COLS - 1, Math.round((this.x - TILE_SIZE / 2) / TILE_SIZE)));
+            const targetX = col * TILE_SIZE + TILE_SIZE / 2;
+            const diffX = targetX - this.x;
+            if (Math.abs(diffX) > 0.5) {
+                this.x += Math.sign(diffX) * Math.min(Math.abs(diffX), moveStep * 1.5);
+            } else {
+                this.x = targetX;
+            }
+
+            // 当前所在行与上方行
+            const curRow = Math.floor((this.y - TILE_SIZE / 2 + 2) / TILE_SIZE);
+            const nextRow = curRow - 1;
+
+            let limitY = TILE_SIZE / 2; // 地图顶部边界
+            if (nextRow < 0 || gameMap.isBlockedForMovement(col, nextRow)) {
+                limitY = curRow * TILE_SIZE + TILE_SIZE / 2;
+            }
+
+            const newY = this.y - moveStep;
+            if (newY >= limitY) {
+                this.y = newY;
+                this.trackOffset += moveStep;
+                return true;
+            } else {
+                this.y = limitY;
+                return false;
+            }
+        } else if (dir === DIRECTION.DOWN) {
+            // 垂直对齐：严格锁在最近的整列中心
+            const col = Math.max(0, Math.min(MAP_COLS - 1, Math.round((this.x - TILE_SIZE / 2) / TILE_SIZE)));
+            const targetX = col * TILE_SIZE + TILE_SIZE / 2;
+            const diffX = targetX - this.x;
+            if (Math.abs(diffX) > 0.5) {
+                this.x += Math.sign(diffX) * Math.min(Math.abs(diffX), moveStep * 1.5);
+            } else {
+                this.x = targetX;
+            }
+
+            const curRow = Math.ceil((this.y - TILE_SIZE / 2 - 2) / TILE_SIZE);
+            const nextRow = curRow + 1;
+
+            let limitY = (MAP_ROWS - 1) * TILE_SIZE + TILE_SIZE / 2;
+            if (nextRow >= MAP_ROWS || gameMap.isBlockedForMovement(col, nextRow)) {
+                limitY = curRow * TILE_SIZE + TILE_SIZE / 2;
+            }
+
+            const newY = this.y + moveStep;
+            if (newY <= limitY) {
+                this.y = newY;
+                this.trackOffset += moveStep;
+                return true;
+            } else {
+                this.y = limitY;
+                return false;
+            }
+        } else if (dir === DIRECTION.LEFT) {
+            // 水平对齐：严格锁在最近的整行中心
+            const row = Math.max(0, Math.min(MAP_ROWS - 1, Math.round((this.y - TILE_SIZE / 2) / TILE_SIZE)));
+            const targetY = row * TILE_SIZE + TILE_SIZE / 2;
+            const diffY = targetY - this.y;
+            if (Math.abs(diffY) > 0.5) {
+                this.y += Math.sign(diffY) * Math.min(Math.abs(diffY), moveStep * 1.5);
+            } else {
+                this.y = targetY;
+            }
+
+            const curCol = Math.floor((this.x - TILE_SIZE / 2 + 2) / TILE_SIZE);
+            const nextCol = curCol - 1;
+
+            let limitX = TILE_SIZE / 2;
+            if (nextCol < 0 || gameMap.isBlockedForMovement(nextCol, row)) {
+                limitX = curCol * TILE_SIZE + TILE_SIZE / 2;
+            }
+
+            const newX = this.x - moveStep;
+            if (newX >= limitX) {
+                this.x = newX;
+                this.trackOffset += moveStep;
+                return true;
+            } else {
+                this.x = limitX;
+                return false;
+            }
+        } else if (dir === DIRECTION.RIGHT) {
+            // 水平对齐：严格锁在最近的整行中心
+            const row = Math.max(0, Math.min(MAP_ROWS - 1, Math.round((this.y - TILE_SIZE / 2) / TILE_SIZE)));
+            const targetY = row * TILE_SIZE + TILE_SIZE / 2;
+            const diffY = targetY - this.y;
+            if (Math.abs(diffY) > 0.5) {
+                this.y += Math.sign(diffY) * Math.min(Math.abs(diffY), moveStep * 1.5);
+            } else {
+                this.y = targetY;
+            }
+
+            const curCol = Math.ceil((this.x - TILE_SIZE / 2 - 2) / TILE_SIZE);
+            const nextCol = curCol + 1;
+
+            let limitX = (MAP_COLS - 1) * TILE_SIZE + TILE_SIZE / 2;
+            if (nextCol >= MAP_COLS || gameMap.isBlockedForMovement(nextCol, row)) {
+                limitX = curCol * TILE_SIZE + TILE_SIZE / 2;
+            }
+
+            const newX = this.x + moveStep;
+            if (newX <= limitX) {
+                this.x = newX;
+                this.trackOffset += moveStep;
+                return true;
+            } else {
+                this.x = limitX;
                 return false;
             }
         }
-        return true;
+        return false;
     }
 
     drawBaseTank(ctx, bodyColor, turretColor) {
@@ -198,46 +299,12 @@ export class PlayerTank extends Tank {
             this.speed = this.baseSpeed;
         }
 
-        // 1. 摇杆主动控制行走
+        // 1. 摇杆/方向键主动控制行走 (严格基于网格整数通道对齐)
         if (this.joystickDir !== null) {
-            this.angle = this.joystickDir;
             const moveStep = this.speed * dt;
-            let nextX = this.x + Math.cos(this.angle) * moveStep;
-            let nextY = this.y + Math.sin(this.angle) * moveStep;
-
-            // 智能拐角吸附 (Corner Alignment - 解决FC经典直角拐角防卡死)
-            if (this.angle === DIRECTION.UP || this.angle === DIRECTION.DOWN) {
-                const nearestCol = Math.round((this.x - TILE_SIZE / 2) / TILE_SIZE);
-                const targetCenterX = nearestCol * TILE_SIZE + TILE_SIZE / 2;
-                const diffX = targetCenterX - this.x;
-                if (Math.abs(diffX) < 14) {
-                    this.x += diffX * 0.25;
-                    nextX = this.x;
-                }
-            } else if (this.angle === DIRECTION.LEFT || this.angle === DIRECTION.RIGHT) {
-                const nearestRow = Math.round((this.y - TILE_SIZE / 2) / TILE_SIZE);
-                const targetCenterY = nearestRow * TILE_SIZE + TILE_SIZE / 2;
-                const diffY = targetCenterY - this.y;
-                if (Math.abs(diffY) < 14) {
-                    this.y += diffY * 0.25;
-                    nextY = this.y;
-                }
-            }
-
-            if (this.canMoveTo(nextX, nextY, gameMap)) {
-                this.x = nextX;
-                this.y = nextY;
-                this.trackOffset += moveStep;
-            }
-
-            // 保持在地图边界内
-            const minCoord = this.size / 2;
-            const maxCoordX = MAP_COLS * TILE_SIZE - minCoord;
-            const maxCoordY = MAP_ROWS * TILE_SIZE - minCoord;
-            this.x = Math.max(minCoord, Math.min(maxCoordX, this.x));
-            this.y = Math.max(minCoord, Math.min(maxCoordY, this.y));
+            this.moveInGrid(this.joystickDir, moveStep, gameMap);
         }
-        // 2. 点击自动寻路移动
+        // 2. 点击自动寻路移动 (同样使用严格网格行进，杜绝卡半截砖)
         else if (this.path.length > 0) {
             const nextNode = this.path[0];
             const dx = nextNode.x - this.x;
@@ -250,8 +317,8 @@ export class PlayerTank extends Tank {
 
             const moveStep = this.speed * dt;
 
-            if (dist <= moveStep) {
-                // 到达当前路点，移到下一个
+            if (dist <= 4 || dist <= moveStep) {
+                // 到达当前路点整数中心，切入下一个
                 this.x = nextNode.x;
                 this.y = nextNode.y;
                 this.path.shift();
@@ -259,20 +326,8 @@ export class PlayerTank extends Tank {
                     this.targetDestination = null;
                 }
             } else {
-                // 向路点行进
-                const vx = (dx / dist) * moveStep;
-                const vy = (dy / dist) * moveStep;
-                this.x += vx;
-                this.y += vy;
-                this.trackOffset += moveStep;
+                this.moveInGrid(this.angle, moveStep, gameMap);
             }
-
-            // 保持在地图边界内
-            const minCoord = this.size / 2;
-            const maxCoordX = MAP_COLS * TILE_SIZE - minCoord;
-            const maxCoordY = MAP_ROWS * TILE_SIZE - minCoord;
-            this.x = Math.max(minCoord, Math.min(maxCoordX, this.x));
-            this.y = Math.max(minCoord, Math.min(maxCoordY, this.y));
         }
     }
 
@@ -453,17 +508,12 @@ export class EnemyTank extends Tank {
             this.changeDirTimer = Math.random() * 2 + 1.2;
         }
 
-        // 尝试前进
+        // 严格基于整数通道网格前进
         const moveStep = this.speed * dt;
-        const nextX = this.x + Math.cos(this.angle) * moveStep;
-        const nextY = this.y + Math.sin(this.angle) * moveStep;
+        const moved = this.moveInGrid(this.angle, moveStep, gameMap);
 
-        if (this.canMoveTo(nextX, nextY, gameMap)) {
-            this.x = nextX;
-            this.y = nextY;
-            this.trackOffset += moveStep;
-        } else {
-            // 撞墙立即调转方向
+        if (!moved) {
+            // 撞墙或被障碍阻挡立即调转方向
             this.chooseNewDirection(gameMap, player);
             this.changeDirTimer = Math.random() * 1.5 + 0.5;
         }
@@ -476,25 +526,6 @@ export class EnemyTank extends Tank {
                 this.shoot(bullets, sound);
             }
         }
-    }
-
-    canMoveTo(tx, ty, gameMap) {
-        const hs = this.size / 2 - 2;
-        const corners = [
-            { x: tx - hs, y: ty - hs },
-            { x: tx + hs, y: ty - hs },
-            { x: tx - hs, y: ty + hs },
-            { x: tx + hs, y: ty + hs }
-        ];
-
-        for (const pt of corners) {
-            const col = Math.floor(pt.x / TILE_SIZE);
-            const row = Math.floor(pt.y / TILE_SIZE);
-            if (gameMap.isBlockedForMovement(col, row)) {
-                return false;
-            }
-        }
-        return true;
     }
 
     chooseNewDirection(gameMap, player) {

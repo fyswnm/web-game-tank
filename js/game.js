@@ -186,7 +186,14 @@ export class TankGame {
             fireBtn.addEventListener('mousedown', doFire);
         }
 
-        // 3. 键盘按键适配 (空格键开火，WASD/方向键辅助转向移动，P/Esc 暂停)
+        // 3. 键盘按键适配 (空格键开火，WASD/方向键严格网格移动，P/Esc 暂停)
+        const keyDirs = {
+            'KeyW': DIRECTION.UP, 'ArrowUp': DIRECTION.UP,
+            'KeyS': DIRECTION.DOWN, 'ArrowDown': DIRECTION.DOWN,
+            'KeyA': DIRECTION.LEFT, 'ArrowLeft': DIRECTION.LEFT,
+            'KeyD': DIRECTION.RIGHT, 'ArrowRight': DIRECTION.RIGHT
+        };
+
         window.addEventListener('keydown', (e) => {
             if (this.isGameOver || this.isVictory) return;
 
@@ -204,14 +211,21 @@ export class TankGame {
                 if (this.player && this.player.active) {
                     this.player.shoot(this.playerBullets, sound);
                 }
-            } else if (e.code === 'KeyW' || e.code === 'ArrowUp') {
-                this.manualMove(DIRECTION.UP, 0, -TILE_SIZE);
-            } else if (e.code === 'KeyS' || e.code === 'ArrowDown') {
-                this.manualMove(DIRECTION.DOWN, 0, TILE_SIZE);
-            } else if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
-                this.manualMove(DIRECTION.LEFT, -TILE_SIZE, 0);
-            } else if (e.code === 'KeyD' || e.code === 'ArrowRight') {
-                this.manualMove(DIRECTION.RIGHT, TILE_SIZE, 0);
+            } else if (keyDirs[e.code] !== undefined) {
+                e.preventDefault();
+                if (this.player && this.player.active) {
+                    this.player.setJoystickInput(keyDirs[e.code]);
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (keyDirs[e.code] !== undefined) {
+                if (this.player && this.player.active) {
+                    if (this.player.joystickDir === keyDirs[e.code]) {
+                        this.player.setJoystickInput(null);
+                    }
+                }
             }
         });
 
