@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>经典坦克大战 - 触屏/iPad适配版</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 顶部导航与难度设置 -->
+    <header class="app-header">
+        <div class="logo-area">
+            <span style="font-size: 1.4rem;">🛡️</span>
+            <h1 class="game-title">坦克大战 1990+</h1>
+        </div>
+        <div class="header-controls">
+            <select id="difficultySelect" class="difficulty-select" title="难度设置">
+                <option value="normal">🟢 普通</option>
+                <option value="hard">🟡 高级</option>
+                <option value="expert">🔴 困难</option>
+            </select>
+            <button id="pauseGameBtn" class="btn-header" title="暂停/继续游戏">
+                ⏸️ 暂停
+            </button>
+            <button id="customSkinBtn" class="btn-header" title="手绘坦克配色涂装">
+                🎨 涂装
+            </button>
+            <button class="btn-header restart-game-btn" title="重新开始">
+                🔄 重开
+            </button>
+        </div>
+    </header>
+
+    <!-- 游戏数值与 Buff 状态指示条 -->
+    <section class="game-status-bar">
+        <div class="status-item">
+            <span class="status-label">得分:</span>
+            <span id="scoreDisplay" class="status-value">0</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">装甲:</span>
+            <span id="livesDisplay" class="status-value">❤️❤️❤️</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">敌军:</span>
+            <span id="enemiesLeftDisplay" class="status-value">16</span>
+        </div>
+        <div id="activeBuffsContainer" class="buffs-container"></div>
+    </section>
+
+    <!-- 主游戏视口 -->
+    <main class="game-viewport">
+        <div class="canvas-wrapper">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+
+        <!-- 左侧虚拟摇杆 (左手操作坦克行走与方向) -->
+        <div id="joystickContainer" class="joystick-container" aria-label="移动摇杆">
+            <div class="joystick-base">
+                <span class="joystick-arrow up">▲</span>
+                <span class="joystick-arrow down">▼</span>
+                <span class="joystick-arrow left">◀</span>
+                <span class="joystick-arrow right">▶</span>
+                <div id="joystickKnob" class="joystick-knob"></div>
+            </div>
+        </div>
+
+        <!-- 触屏操作提示 -->
+        <div class="touch-hint">
+            🕹️ 左手摇杆/轻触移动 | 🔥 右手开炮 | 炮弹相互抵消
+        </div>
+
+        <!-- 移动端/iPad 开炮大按钮 -->
+        <div class="fire-button-container">
+            <button id="fireBtn" class="fire-btn" aria-label="开炮">
+                开炮
+                <span>FIRE</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- 游戏结束弹窗 -->
+    <div id="gameOverModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2 style="color: #ef4444;">💥 任务失败 💥</h2>
+            <p id="gameOverReason">老家被摧毁！</p>
+            <p id="gameOverScore" style="font-weight: bold; font-size: 1.1rem; color: #fbbf24;"></p>
+            <button class="btn-primary restart-game-btn">🔄 再次挑战</button>
+        </div>
+    </div>
+
+    <!-- 暂停弹窗 -->
+    <div id="pauseModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2 style="color: #38bdf8;">⏸️ 游戏已暂停</h2>
+            <p>指挥官，战斗已挂起，准备好后随时继续！</p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button id="resumeGameBtn" class="btn-primary" style="background: linear-gradient(135deg, #0284c7, #0369a1);">▶️ 继续战斗</button>
+                <button class="btn-primary restart-game-btn" style="background: #334155;">🔄 重新开局</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 胜利弹窗 -->
+    <div id="victoryModal" class="modal-overlay">
+        <div class="modal-card">
+            <h2 style="color: #10b981;">🏆 战役大捷 🏆</h2>
+            <p>你成功歼灭了全部敌军，保卫了基地！</p>
+            <p id="victoryScore" style="font-weight: bold; font-size: 1.1rem; color: #fbbf24;"></p>
+            <button class="btn-primary restart-game-btn">🎖️ 再来一局</button>
+        </div>
+    </div>
+
+    <!-- 手绘涂装工作台弹窗 -->
+    <div id="paintModal" class="modal-overlay">
+        <div class="modal-card paint-studio-card">
+            <div class="paint-studio-header">
+                <div>
+                    <h3>🎨 坦克涂装工坊</h3>
+                    <span class="pause-badge">⏸️ 已自动暂停游戏</span>
+                </div>
+                <button id="closePaintModal" class="close-btn">&times;</button>
+            </div>
+
+            <div class="paint-workspace">
+                <div class="paint-canvas-container">
+                    <canvas id="paintCanvas"></canvas>
+                    <span class="canvas-hint">手指/触控笔涂鸦车身</span>
+                </div>
+                <div class="preview-tank-box">
+                    <span>整车装配预览</span>
+                    <canvas id="skinPreviewCanvas" width="90" height="90"></canvas>
+                </div>
+            </div>
+
+            <div class="paint-tools-panel">
+                <!-- 预设涂装 -->
+                <div class="presets-row">
+                    <span>经典套装:</span>
+                    <button id="presetCamouflage" class="preset-chip">丛林迷彩</button>
+                    <button id="presetCyber" class="preset-chip">赛博未来</button>
+                    <button id="presetFire" class="preset-chip">烈焰战车</button>
+                </div>
+
+                <!-- 1. 车身调色板与工具 -->
+                <div class="section-title">🖌️ 车身手绘画笔配色:</div>
+                <div class="palette-row">
+                    <div id="colorPalette" class="palette-row"></div>
+                    <input type="color" id="customColorPicker" class="custom-color-input" value="#10b981" title="自定义车身颜色">
+                </div>
+
+                <div class="tool-buttons-row">
+                    <button id="eraserBtn" class="tool-btn">🧽 橡皮擦</button>
+                    <button id="clearPaintBtn" class="tool-btn">🗑️ 重置车身</button>
+                    <div class="brush-slider-box">
+                        <span>粗细:</span>
+                        <input type="range" id="brushSizeSlider" min="2" max="20" value="6">
+                    </div>
+                </div>
+
+                <!-- 2. 炮台与炮管颜色设置 -->
+                <div class="section-title">🎯 炮台与炮管配色:</div>
+                <div class="palette-row">
+                    <div id="turretColorPalette" class="palette-row"></div>
+                    <input type="color" id="customTurretColorPicker" class="custom-color-input" value="#22c55e" title="自定义炮台颜色">
+                </div>
+            </div>
+
+            <button id="applySkinBtn" class="btn-primary">✨ 装备此专属涂装出战</button>
+        </div>
+    </div>
+
+    <!-- 模块脚本加载 -->
+    <script type="module" src="js/game.js"></script>
+</body>
+</html>
