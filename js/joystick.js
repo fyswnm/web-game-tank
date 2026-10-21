@@ -11,8 +11,8 @@ export class VirtualJoystick {
         this.isActive = false;
         this.touchId = null;
         this.center = { x: 0, y: 0 };
-        this.maxRadius = 55; // 蘑菇头最大拉伸半径 (加大提升手感)
-        this.deadzone = 10;  // 死区
+        this.maxRadius = 88; // 翻倍后的蘑菇头最大拉伸行程
+        this.deadzone = 14;  // 死区
 
         this.currentDir = null;
 
@@ -31,7 +31,7 @@ export class VirtualJoystick {
                 x: rect.left + rect.width / 2,
                 y: rect.top + rect.height / 2
             };
-            this.maxRadius = Math.max(50, rect.width * 0.38);
+            this.maxRadius = Math.max(75, rect.width * 0.38);
 
             this.updateKnobPosition(clientX, clientY);
         };
