@@ -31,7 +31,7 @@ export class TankGame {
 
         // 游戏状态
         this.score = 0;
-        this.lives = 3;
+        this.lives = 15;
         this.difficulty = 'normal'; // normal, hard, expert
         this.totalEnemiesToSpawn = 16;
         this.enemiesSpawned = 0;
@@ -75,7 +75,7 @@ export class TankGame {
         this.enemies = [];
 
         this.score = 0;
-        this.lives = 3;
+        this.lives = 15;
         this.enemiesSpawned = 0;
         this.enemiesDefeated = 0;
         this.totalEnemiesToSpawn = this.difficulty === 'expert' ? 20 : (this.difficulty === 'hard' ? 18 : 14);
@@ -589,7 +589,9 @@ export class TankGame {
         if (scoreEl) scoreEl.innerText = this.score;
 
         const livesEl = document.getElementById('livesDisplay');
-        if (livesEl) livesEl.innerText = '❤️'.repeat(Math.max(0, this.lives));
+        if (livesEl) {
+            livesEl.innerText = this.lives > 5 ? `❤️ × ${this.lives}` : '❤️'.repeat(Math.max(0, this.lives));
+        }
 
         const enemiesLeftEl = document.getElementById('enemiesLeftDisplay');
         if (enemiesLeftEl) {
