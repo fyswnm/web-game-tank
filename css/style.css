@@ -251,44 +251,54 @@ body {
     transition: transform 0.04s ease-out;
 }
 
-/* On-Screen Mobile Fire Button */
+/* On-Screen Mobile Fire Button (Right Hand) - 超大尺寸街机开炮按钮 (与左侧摇杆完全同等大尺寸) */
 .fire-button-container {
     position: absolute;
-    bottom: 20px;
-    right: 20px;
+    bottom: 16px;
+    right: 16px;
+    width: 230px;
+    height: 230px;
     z-index: 25;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .fire-btn {
-    width: 105px;
-    height: 105px;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #ef4444, #991b1b);
-    border: 4px solid #fecaca;
+    background: radial-gradient(circle at 35% 35%, #ef4444, #dc2626 55%, #991b1b 85%, #7f1d1d);
+    border: 6px solid #fecaca;
     color: #ffffff;
-    font-size: 1.45rem;
+    font-size: 2.8rem;
     font-weight: 900;
-    letter-spacing: 1px;
-    box-shadow: 0 10px 28px rgba(239, 68, 68, 0.55), inset 0 3px 6px rgba(255, 255, 255, 0.45);
+    letter-spacing: 2px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 14px 40px rgba(239, 68, 68, 0.65), inset 0 6px 14px rgba(255, 255, 255, 0.5), inset 0 -6px 12px rgba(0, 0, 0, 0.4);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     cursor: pointer;
     touch-action: manipulation;
-    transition: transform 0.08s ease, filter 0.08s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform 0.08s ease, filter 0.08s ease, box-shadow 0.08s ease;
 }
 
 .fire-btn span {
-    font-size: 0.72rem;
-    font-weight: bold;
-    opacity: 0.9;
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    opacity: 0.92;
+    margin-top: 4px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .fire-btn:active {
-    transform: scale(0.9);
-    filter: brightness(1.2);
-    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.8);
+    transform: scale(0.92);
+    filter: brightness(1.25);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.9), inset 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 /* Help / Hint Banner (居中避开左右按钮) */
@@ -603,11 +613,35 @@ body {
         width: 115px;
         height: 115px;
     }
-    .fire-btn {
-        width: 115px;
-        height: 115px;
-        font-size: 1.6rem;
+    .fire-button-container {
+        width: 260px;
+        height: 260px;
         bottom: 24px;
         right: 24px;
+    }
+    .fire-btn {
+        font-size: 3.2rem;
+    }
+    .fire-btn span {
+        font-size: 1.3rem;
+    }
+}
+
+/* 适配超窄屏手机，左右摇杆与开炮按钮等比对称自适应 */
+@media (max-width: 500px) {
+    .joystick-container,
+    .fire-button-container {
+        width: min(230px, 42vw);
+        height: min(230px, 42vw);
+    }
+    .fire-btn {
+        font-size: 1.8rem;
+    }
+    .fire-btn span {
+        font-size: 0.85rem;
+    }
+    .joystick-knob {
+        width: 75px;
+        height: 75px;
     }
 }

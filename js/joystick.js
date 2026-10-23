@@ -31,7 +31,7 @@ export class VirtualJoystick {
                 x: rect.left + rect.width / 2,
                 y: rect.top + rect.height / 2
             };
-            this.maxRadius = Math.max(75, rect.width * 0.38);
+            this.maxRadius = Math.max(35, rect.width * 0.38);
 
             this.updateKnobPosition(clientX, clientY);
         };
