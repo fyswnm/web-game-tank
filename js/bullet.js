@@ -1,5 +1,6 @@
 // Bullet class with collision detection and bullet-bullet canceling
 import { TILE_SIZE, TILE_TYPE } from './map.js';
+import { sound } from './audio.js';
 
 export class Bullet {
     constructor(x, y, dirAngle, speed, isPlayer = false, canBreakStone = false) {
@@ -48,12 +49,29 @@ export class Bullet {
 
         const tileType = gameMap.grid[row][col];
         if (tileType !== TILE_TYPE.EMPTY) {
-            const destroyed = gameMap.damageTile(col, row, this.canBreakStone);
+            const hitResult = gameMap.damageTile(col, row, this.canBreakStone);
+
+            // 撞击音效与特殊判定 (老家受损音效反馈)
+            if (tileType === TILE_TYPE.BASE) {
+                if (gameMap.baseDestroyed) {
+                    sound.playExplosion(true);
+                } else {
+                    sound.playBaseHit();
+                }
+            }
 
             // 产生撞击火花/碎屑粒子
-            const sparkColor = tileType === TILE_TYPE.STONE ? '#ced4da' : '#d97706';
+            let sparkColor = '#d97706';
+            if (tileType === TILE_TYPE.STONE) {
+                sparkColor = '#ced4da';
+            } else if (tileType === TILE_TYPE.BASE) {
+                sparkColor = '#ef4444';
+            }
+
             if (particles) {
-                particles.createExplosion(this.x, this.y, sparkColor, 8, 1.2);
+                const count = tileType === TILE_TYPE.BASE ? 22 : 8;
+                const scale = tileType === TILE_TYPE.BASE ? 1.8 : 1.2;
+                particles.createExplosion(this.x, this.y, sparkColor, count, scale);
             }
 
             this.active = false;

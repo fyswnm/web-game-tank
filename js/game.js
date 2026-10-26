@@ -593,6 +593,20 @@ export class TankGame {
             livesEl.innerText = this.lives > 5 ? `❤️ × ${this.lives}` : '❤️'.repeat(Math.max(0, this.lives));
         }
 
+        const baseHpEl = document.getElementById('baseHpDisplay');
+        if (baseHpEl) {
+            const hp = this.gameMap.baseHp;
+            if (this.gameMap.baseDestroyed || hp <= 0) {
+                baseHpEl.innerHTML = '<span style="color:#ef4444; font-weight:900; font-size:1.15rem;">☠ 0/3</span>';
+            } else if (hp === 3) {
+                baseHpEl.innerHTML = '<span style="color:#10b981; font-weight:900; font-size:1.15rem;">🛡️ 3/3</span>';
+            } else if (hp === 2) {
+                baseHpEl.innerHTML = '<span style="color:#f59e0b; font-weight:900; font-size:1.15rem;">🛡️ 2/3</span>';
+            } else {
+                baseHpEl.innerHTML = '<span style="color:#ef4444; font-weight:900; font-size:1.15rem; animation:pulse 0.6s infinite alternate;">⚠️ 1/3</span>';
+            }
+        }
+
         const enemiesLeftEl = document.getElementById('enemiesLeftDisplay');
         if (enemiesLeftEl) {
             const left = Math.max(0, this.totalEnemiesToSpawn - this.enemiesDefeated);

@@ -17,7 +17,10 @@ export class GameMap {
         this.grid = [];
         this.baseX = 7;
         this.baseY = 14;
+        this.maxBaseHp = 3;
+        this.baseHp = 3;
         this.baseDestroyed = false;
+        this.baseHitFlashTimer = 0;
 
         // 老家防御罩 Buff 状态
         this.baseFortressActive = false;
@@ -30,6 +33,8 @@ export class GameMap {
     init() {
         this.grid = Array(this.rows).fill(0).map(() => Array(this.cols).fill(TILE_TYPE.EMPTY));
         this.baseDestroyed = false;
+        this.baseHp = this.maxBaseHp;
+        this.baseHitFlashTimer = 0;
         this.baseFortressActive = false;
         this.baseFortressTimer = 0;
 
@@ -97,6 +102,11 @@ export class GameMap {
     }
 
     update(dt) {
+        if (this.baseHitFlashTimer > 0) {
+            this.baseHitFlashTimer -= dt;
+            if (this.baseHitFlashTimer < 0) this.baseHitFlashTimer = 0;
+        }
+
         if (this.baseFortressActive) {
             this.baseFortressTimer -= dt;
             if (this.baseFortressTimer <= 0) {
@@ -137,7 +147,14 @@ export class GameMap {
         }
 
         if (type === TILE_TYPE.BASE) {
-            this.baseDestroyed = true;
+            if (this.baseDestroyed) return false;
+
+            this.baseHp--;
+            this.baseHitFlashTimer = 0.35; // 受击震颤红光
+            if (this.baseHp <= 0) {
+                this.baseHp = 0;
+                this.baseDestroyed = true;
+            }
             return true;
         }
 
@@ -224,51 +241,146 @@ export class GameMap {
     }
 
     drawBase(ctx, x, y) {
+        const cx = x + TILE_SIZE / 2;
+        const cy = y + TILE_SIZE / 2;
+
         if (this.baseDestroyed) {
             // 老家被毁后的废墟
-            ctx.fillStyle = '#212529';
+            ctx.fillStyle = '#1e293b';
             ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-            ctx.fillStyle = '#dc3545';
-            ctx.font = '24px monospace';
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(x + 1.5, y + 1.5, TILE_SIZE - 3, TILE_SIZE - 3);
+
+            ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('☠', x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+
+            // 大号 ☠ 骷髅与 0 HP
+            ctx.fillStyle = '#ef4444';
+            ctx.font = 'bold 18px monospace';
+            ctx.fillText('☠', cx - 11, cy + 1);
+
+            ctx.font = '900 26px "Arial Black", -apple-system, sans-serif';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3.5;
+            ctx.strokeText('0', cx + 10, cy + 1);
+            ctx.fillText('0', cx + 10, cy + 1);
+            ctx.restore();
             return;
         }
 
-        // 老家基座 (老鹰/科技核心标志)
-        ctx.fillStyle = '#102a43';
+        // 1. 基座底板 (受击时高亮警报红光闪烁)
+        if (this.baseHitFlashTimer > 0) {
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
+        } else {
+            ctx.fillStyle = '#0a0f1d';
+        }
         ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
 
-        ctx.strokeStyle = '#627d98';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+        // 2. 基座外边框 (根据血量变色，残血时心跳警报剧烈闪烁)
+        if (this.baseHitFlashTimer > 0) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+        } else if (this.baseHp === 1) {
+            const warnPulse = Math.sin(Date.now() / 90) * 0.4 + 0.6;
+            ctx.strokeStyle = `rgba(239, 68, 68, ${warnPulse})`;
+            ctx.lineWidth = 2.5;
+        } else if (this.baseHp === 2) {
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+        } else {
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+        }
+        ctx.strokeRect(x + 1.5, y + 1.5, TILE_SIZE - 3, TILE_SIZE - 3);
 
-        // 老鹰/盾牌图腾
-        ctx.fillStyle = '#f0b429';
+        // 3. 背景暗纹：半透明老鹰图腾 (保留经典坦克老家底蕴)
+        ctx.save();
+        ctx.globalAlpha = 0.28;
+        ctx.fillStyle = this.baseHp === 1 ? '#ef4444' : '#f0b429';
         ctx.beginPath();
-        const cx = x + TILE_SIZE / 2;
-        const cy = y + TILE_SIZE / 2;
-        // 展翅飞鹰几何
-        ctx.moveTo(cx, cy - 14);
-        ctx.lineTo(cx + 14, cy - 4);
-        ctx.lineTo(cx + 8, cy + 12);
-        ctx.lineTo(cx, cy + 16);
-        ctx.lineTo(cx - 8, cy + 12);
-        ctx.lineTo(cx - 14, cy - 4);
+        const eagleY = cy + 2;
+        ctx.moveTo(cx, eagleY - 14);
+        ctx.lineTo(cx + 16, eagleY - 4);
+        ctx.lineTo(cx + 9, eagleY + 11);
+        ctx.lineTo(cx, eagleY + 15);
+        ctx.lineTo(cx - 9, eagleY + 11);
+        ctx.lineTo(cx - 16, eagleY - 4);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
 
-        ctx.fillStyle = '#975a16';
-        ctx.beginPath();
-        ctx.arc(cx, cy - 2, 5, 0, Math.PI * 2);
-        ctx.fill();
+        // 4. 老家顶部：3格高亮精准血槽 (Health Bar)
+        const barX = x + 3;
+        const barY = y + 3;
+        const totalBarW = 42;
+        const segW = 12;
+        const segGap = 2;
+        const segH = 5;
 
-        // 闪烁核心宝石
-        const pulse = Math.sin(Date.now() / 200) * 0.4 + 0.6;
-        ctx.fillStyle = `rgba(245, 101, 101, ${pulse})`;
-        ctx.beginPath();
-        ctx.arc(cx, cy - 2, 3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(barX - 1, barY - 1, totalBarW + 2, segH + 2);
+
+        for (let i = 0; i < this.maxBaseHp; i++) {
+            const sx = barX + i * (segW + segGap);
+            if (i < this.baseHp) {
+                if (this.baseHp === 3) ctx.fillStyle = '#10b981';
+                else if (this.baseHp === 2) ctx.fillStyle = '#f59e0b';
+                else ctx.fillStyle = '#ef4444';
+            } else {
+                ctx.fillStyle = '#334155';
+            }
+            ctx.fillRect(sx, barY, segW, segH);
+        }
+
+        // 5. 老家中央：超大字号血量展示 (特大号大数字 + 爱心图标，超清醒目)
+        const contentY = cy + 5;
+        let hpColor = '#4ade80';
+        let heartIcon = '❤️';
+
+        if (this.baseHp === 2) {
+            hpColor = '#fde047';
+            heartIcon = '❤️';
+        } else if (this.baseHp === 1) {
+            hpColor = '#ff4d4f';
+            heartIcon = Math.sin(Date.now() / 120) > 0 ? '💔' : '⚠️';
+        }
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // 左侧爱心图标 (15px)
+        ctx.font = '15px sans-serif';
+        ctx.fillText(heartIcon, cx - 11, contentY);
+
+        // 右侧特大号血量大数字 (26px 极粗特大号数字！)
+        ctx.font = '900 26px "Arial Black", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 2;
+
+        // 黑色外描边提升对比度
+        ctx.strokeStyle = '#050b14';
+        ctx.lineWidth = 3.5;
+        ctx.strokeText(String(this.baseHp), cx + 10, contentY + 1);
+
+        // 高亮大数字填充
+        ctx.fillStyle = hpColor;
+        ctx.fillText(String(this.baseHp), cx + 10, contentY + 1);
+        ctx.restore();
+
+        // 6. 受击瞬间浮动大红字警告 (Damage Popup)
+        if (this.baseHitFlashTimer > 0) {
+            ctx.save();
+            ctx.fillStyle = '#ff2222';
+            ctx.shadowColor = '#000000';
+            ctx.shadowBlur = 6;
+            ctx.font = '900 15px "Arial Black", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('-1 HP', cx, y - 6);
+            ctx.restore();
+        }
     }
 }
