@@ -1,5 +1,5 @@
 // Virtual On-Screen Joystick for mobile & iPad left-hand controls
-import { DIRECTION } from './tank.js';
+import { DIRECTION } from './tank.js?v=3';
 
 export class VirtualJoystick {
     constructor(containerId, knobId, onMove, onStop) {

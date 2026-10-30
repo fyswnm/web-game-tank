@@ -1,11 +1,12 @@
 // Power-up collectibles and buffs
-import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
+import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=3';
 
 export const BUFF_TYPE = {
     FORTRESS: 'fortress',       // 老家铁壁无敌
     POWER_SHELL: 'powershell',  // 穿石强力弹
     SHIELD: 'shield',           // 自身无敌护盾
-    SPEED: 'speed'              // 自身加速
+    SPEED: 'speed',             // 自身加速
+    BOMB: 'bomb'                // 全屏大炸弹 (清屏消灭所有敌军)
 };
 
 export class PowerUp {
@@ -24,6 +25,12 @@ export class PowerUp {
         if (this.age >= this.lifetime) {
             this.active = false;
         }
+    }
+
+    checkCollision(tankX, tankY, tankSize) {
+        if (!this.active) return false;
+        const dist = Math.hypot(this.x - tankX, this.y - tankY);
+        return dist < (this.size / 2 + tankSize / 2);
     }
 
     draw(ctx) {
@@ -79,6 +86,12 @@ export class PowerUp {
                 ctx.font = 'bold 18px sans-serif';
                 ctx.fillText('⚡', 0, 1);
                 break;
+            case BUFF_TYPE.BOMB:
+                // 全屏大炸弹
+                ctx.fillStyle = '#ef4444';
+                ctx.font = 'bold 20px sans-serif';
+                ctx.fillText('💣', 0, 1);
+                break;
         }
 
         ctx.restore();
@@ -90,6 +103,7 @@ export class PowerUp {
             case BUFF_TYPE.POWER_SHELL: return '#f87171';
             case BUFF_TYPE.SHIELD: return '#60a5fa';
             case BUFF_TYPE.SPEED: return '#34d399';
+            case BUFF_TYPE.BOMB: return '#ef4444';
             default: return '#ffffff';
         }
     }
@@ -107,13 +121,18 @@ export class PowerUp {
         if (emptyTiles.length === 0) return null;
 
         const tile = emptyTiles[Math.floor(Math.random() * emptyTiles.length)];
-        const types = [
+        
+        // 提高大炸弹(BOMB)的抽取权重（例如权重约30%），其余Buff均匀分布
+        const weightedTypes = [
+            BUFF_TYPE.BOMB,
+            BUFF_TYPE.BOMB,
+            BUFF_TYPE.BOMB,
             BUFF_TYPE.FORTRESS,
             BUFF_TYPE.POWER_SHELL,
             BUFF_TYPE.SHIELD,
             BUFF_TYPE.SPEED
         ];
-        const randomType = types[Math.floor(Math.random() * types.length)];
+        const randomType = weightedTypes[Math.floor(Math.random() * weightedTypes.length)];
 
         return new PowerUp(
             tile.c * TILE_SIZE + TILE_SIZE / 2,

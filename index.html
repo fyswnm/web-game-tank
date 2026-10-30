@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>经典坦克大战 - 触屏/iPad适配版</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
     <!-- 顶部导航与难度设置 -->
@@ -45,7 +48,7 @@
         </div>
         <div class="status-item">
             <span class="status-label">老家:</span>
-            <span id="baseHpDisplay" class="status-value">🛡️ 3/3</span>
+            <span id="baseHpDisplay" class="status-value">🛡️ 5/5</span>
         </div>
         <div class="status-item">
             <span class="status-label">敌军:</span>
@@ -176,7 +179,8 @@
         </div>
     </div>
 
-    <!-- 模块脚本加载 -->
-    <script type="module" src="js/game.js"></script>
+    <!-- 模块脚本加载 (带版本时间戳，防止浏览器积极缓存) -->
+    <!-- 禁止浏览器缓存 JS 模块 -->
+    <script type="module" src="js/game.js?v=3"></script>
 </body>
 </html>

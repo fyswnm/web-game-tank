@@ -1,5 +1,5 @@
 // Breadth-First Search (BFS) grid pathfinding for tank navigation
-import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
+import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=3';
 
 export function findPath(startX, startY, destX, destY, gameMap) {
     // 转换为网格索引

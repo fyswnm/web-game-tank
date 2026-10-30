@@ -1,7 +1,7 @@
 // Tank base, PlayerTank, and EnemyTank
-import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { Bullet } from './bullet.js';
-import { BUFF_TYPE } from './powerup.js';
+import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=3';
+import { Bullet } from './bullet.js?v=3';
+import { BUFF_TYPE } from './powerup.js?v=3';
 
 export const DIRECTION = {
     UP: -Math.PI / 2,
@@ -500,6 +500,7 @@ export class EnemyTank extends Tank {
     }
 
     updateAI(dt, gameMap, player, bullets, sound) {
+        if (!this.active) return;
         super.update(dt);
 
         this.changeDirTimer -= dt;
@@ -569,6 +570,8 @@ export class EnemyTank extends Tank {
     }
 
     draw(ctx) {
+        if (!this.active) return;
+
         if (this.isCarrier) {
             // 发光道具载具（不断变色）
             const flash = Math.floor(Date.now() / 150) % 2 === 0;
@@ -579,14 +582,16 @@ export class EnemyTank extends Tank {
         }
 
         // 多血量坦克绘制血量槽
-        if (this.maxHp > 1) {
+        if (this.maxHp > 1 && this.hp > 0) {
             ctx.save();
             ctx.translate(this.x, this.y - this.size / 2 - 6);
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
             ctx.fillRect(-15, 0, 30, 4);
             ctx.fillStyle = '#ef4444';
-            const hpWidth = (this.hp / this.maxHp) * 30;
-            ctx.fillRect(-15, 0, hpWidth, 4);
+            const hpWidth = Math.max(0, Math.min(30, (this.hp / this.maxHp) * 30));
+            if (hpWidth > 0) {
+                ctx.fillRect(-15, 0, hpWidth, 4);
+            }
             ctx.restore();
         }
     }

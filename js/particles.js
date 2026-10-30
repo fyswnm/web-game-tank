@@ -2,6 +2,7 @@
 export class ParticleSystem {
     constructor() {
         this.particles = [];
+        this.shockwaves = [];
     }
 
     createExplosion(x, y, color = '#f97316', count = 15, sizeScale = 1.0) {
@@ -19,6 +20,32 @@ export class ParticleSystem {
                 decay: Math.random() * 1.5 + 2.0
             });
         }
+    }
+
+    createShockwave(x, y, maxRadius = 180, color = 'rgba(255, 200, 50, 0.8)') {
+        this.shockwaves.push({
+            x,
+            y,
+            radius: 8,
+            maxRadius,
+            color,
+            lineWidth: 6,
+            alpha: 1,
+            speed: 420
+        });
+    }
+
+    createNukeExplosion(x, y) {
+        // 多重扩散能量冲击波
+        this.createShockwave(x, y, 320, 'rgba(239, 68, 68, 0.9)');
+        this.createShockwave(x, y, 220, 'rgba(249, 115, 22, 0.95)');
+        this.createShockwave(x, y, 140, 'rgba(255, 255, 255, 1.0)');
+
+        // 巨量核心烈焰与火花粒子
+        this.createExplosion(x, y, '#ef4444', 45, 2.6);
+        this.createExplosion(x, y, '#f97316', 35, 2.0);
+        this.createExplosion(x, y, '#fbbf24', 25, 1.5);
+        this.createExplosion(x, y, '#ffffff', 20, 1.2);
     }
 
     createClashEffect(x, y) {
@@ -57,6 +84,7 @@ export class ParticleSystem {
     }
 
     update(dt) {
+        // 粒子更新
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
             p.x += p.vx * dt;
@@ -66,9 +94,33 @@ export class ParticleSystem {
                 this.particles.splice(i, 1);
             }
         }
+
+        // 冲击波更新
+        for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+            const sw = this.shockwaves[i];
+            sw.radius += sw.speed * dt;
+            sw.alpha = Math.max(0, 1 - sw.radius / sw.maxRadius);
+            sw.lineWidth = Math.max(1, 6 * sw.alpha);
+            if (sw.radius >= sw.maxRadius || sw.alpha <= 0) {
+                this.shockwaves.splice(i, 1);
+            }
+        }
     }
 
     draw(ctx) {
+        // 先绘制冲击波光环
+        this.shockwaves.forEach(sw => {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, sw.alpha);
+            ctx.strokeStyle = sw.color;
+            ctx.lineWidth = sw.lineWidth;
+            ctx.beginPath();
+            ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        });
+
+        // 绘制爆炸碎屑粒子
         this.particles.forEach(p => {
             ctx.save();
             ctx.globalAlpha = Math.max(0, p.alpha);

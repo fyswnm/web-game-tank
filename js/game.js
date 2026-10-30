@@ -1,12 +1,12 @@
 // Main Game Controller
-import { sound } from './audio.js';
-import { GameMap, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js';
-import { PlayerTank, EnemyTank, DIRECTION } from './tank.js';
-import { ParticleSystem } from './particles.js';
-import { PowerUp, BUFF_TYPE } from './powerup.js';
-import { findPath } from './pathfinding.js';
-import { TankPainter } from './paint.js';
-import { VirtualJoystick } from './joystick.js';
+import { sound } from './audio.js?v=3';
+import { GameMap, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=3';
+import { PlayerTank, EnemyTank, DIRECTION } from './tank.js?v=3';
+import { ParticleSystem } from './particles.js?v=3';
+import { PowerUp, BUFF_TYPE } from './powerup.js?v=3';
+import { findPath } from './pathfinding.js?v=3';
+import { TankPainter } from './paint.js?v=3';
+import { VirtualJoystick } from './joystick.js?v=3';
 
 export class TankGame {
     constructor() {
@@ -41,6 +41,14 @@ export class TankGame {
         this.isGameOver = false;
         this.isVictory = false;
         this.isPaused = false;
+
+        // 定时空投道具计时器 (每 3 秒刷新道具)
+        this.buffDropTimer = 3.0;
+
+        // 特效状态 (全屏炸弹闪屏、震屏、提示横幅)
+        this.screenShake = 0;
+        this.screenFlashTimer = 0;
+        this.nukeBannerTimer = 0;
 
         // 手绘涂装管理器 (打开涂装时自动暂停，关闭时恢复)
         this.painter = new TankPainter(
@@ -85,6 +93,10 @@ export class TankGame {
         this.isGameOver = false;
         this.isVictory = false;
         this.isPaused = false;
+        this.buffDropTimer = 3.0;
+        this.screenShake = 0;
+        this.screenFlashTimer = 0;
+        this.nukeBannerTimer = 0;
 
         // 初始化玩家坦克 (出生在老家左侧空地)
         this.spawnPlayer();
@@ -326,7 +338,7 @@ export class TankGame {
         if (available.length === 0) return;
 
         const pt = available[Math.floor(Math.random() * available.length)];
-        const isCarrier = Math.random() < 0.35; // 35% 几率是发光道具载具
+        const isCarrier = Math.random() < 0.6; // 提高发光道具载具概率至 60%
 
         const enemy = new EnemyTank(pt.x, pt.y, this.difficulty, isCarrier);
         this.enemies.push(enemy);
@@ -338,6 +350,17 @@ export class TankGame {
 
     update(dt) {
         if (this.isPaused || this.isGameOver || this.isVictory) return;
+
+        // 特效衰减
+        if (this.screenShake > 0) {
+            this.screenShake = Math.max(0, this.screenShake - dt * 25);
+        }
+        if (this.screenFlashTimer > 0) {
+            this.screenFlashTimer = Math.max(0, this.screenFlashTimer - dt);
+        }
+        if (this.nukeBannerTimer > 0) {
+            this.nukeBannerTimer = Math.max(0, this.nukeBannerTimer - dt);
+        }
 
         // 1. 地图更新 (老家防御墙倒计时等)
         this.gameMap.update(dt);
@@ -360,6 +383,10 @@ export class TankGame {
 
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
+            if (!enemy.active) {
+                this.enemies.splice(i, 1);
+                continue;
+            }
             enemy.updateAI(dt, this.gameMap, this.player, this.enemyBullets, sound);
             if (!enemy.active) {
                 this.enemies.splice(i, 1);
@@ -369,13 +396,26 @@ export class TankGame {
         // 4. 子弹更新与碰撞检测
         this.updateBullets(dt);
 
-        // 5. 道具掉落与拾取检测
+        // 5. 定时空投新道具机制 (每 3 秒自动在地图刷新一个 Buff，场上最多同时 6 个)
+        this.buffDropTimer -= dt;
+        if (this.buffDropTimer <= 0) {
+            this.buffDropTimer = 3.0;
+            if (this.powerUps.length < 6) {
+                const p = PowerUp.spawnRandom(this.gameMap);
+                if (p) {
+                    this.powerUps.push(p);
+                    this.particles.createBuffPickupEffect(p.x, p.y, p.getColor());
+                }
+            }
+        }
+
+        // 6. 道具掉落与拾取检测
         this.updatePowerUps(dt);
 
-        // 6. 粒子更新
+        // 7. 粒子更新
         this.particles.update(dt);
 
-        // 7. 胜负检测
+        // 8. 胜负检测
         if (this.enemiesDefeated >= this.totalEnemiesToSpawn && this.enemies.length === 0 && !this.isVictory) {
             this.triggerVictory();
         }
@@ -459,8 +499,8 @@ export class TankGame {
                         sound.playExplosion(true);
                         this.particles.createExplosion(enemy.x, enemy.y, '#f97316', 25, 1.6);
 
-                        // 掉落道具：发光载具必掉，普通敌人 25% 掉落
-                        if (enemy.isCarrier || Math.random() < 0.25) {
+                        // 掉落道具：发光载具 100% 掉落，普通敌人 70% 高概率掉落
+                        if (enemy.isCarrier || Math.random() < 0.7) {
                             const p = PowerUp.spawnRandom(this.gameMap);
                             if (p) this.powerUps.push(p);
                         }
@@ -473,6 +513,9 @@ export class TankGame {
                 }
             }
         }
+
+        // 及时清理已阵亡敌军，避免下一帧引用异常
+        this.enemies = this.enemies.filter(e => e.active);
 
         // 敌人炮弹击中玩家
         for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
@@ -554,6 +597,42 @@ export class TankGame {
                 this.player.applyBuff(BUFF_TYPE.SPEED);
                 this.particles.createBuffPickupEffect(x, y, '#10b981');
                 break;
+            case BUFF_TYPE.BOMB:
+                // 全场大炸弹清屏
+                this.triggerNukeBomb(x, y);
+                break;
+        }
+    }
+
+    triggerNukeBomb(x, y) {
+        sound.playNukeBomb();
+        this.screenShake = 18;
+        this.screenFlashTimer = 0.45;
+        this.nukeBannerTimer = 2.0;
+
+        // 1. 拾取位置生成多层冲击波与剧烈核爆粒子
+        this.particles.createNukeExplosion(x, y);
+
+        // 2. 摧毁当前场上所有敌军坦克
+        const activeEnemies = this.enemies.filter(e => e.active);
+        activeEnemies.forEach(enemy => {
+            enemy.active = false;
+            this.enemiesDefeated++;
+            this.score += enemy.maxHp * 200;
+
+            // 每个敌军位置爆发冲击波与爆炸粒子
+            this.particles.createShockwave(enemy.x, enemy.y, 110, 'rgba(239, 68, 68, 0.9)');
+            this.particles.createExplosion(enemy.x, enemy.y, '#f97316', 30, 2.0);
+            this.particles.createExplosion(enemy.x, enemy.y, '#ffffff', 15, 1.2);
+        });
+
+        // 彻底清空场上敌人与敌方发射的残留炮弹
+        this.enemies = [];
+        this.enemyBullets = [];
+
+        // 胜负检测
+        if (this.enemiesDefeated >= this.totalEnemiesToSpawn && !this.isVictory) {
+            this.triggerVictory();
         }
     }
 
@@ -597,13 +676,13 @@ export class TankGame {
         if (baseHpEl) {
             const hp = this.gameMap.baseHp;
             if (this.gameMap.baseDestroyed || hp <= 0) {
-                baseHpEl.innerHTML = '<span style="color:#ef4444; font-weight:900; font-size:1.15rem;">☠ 0/3</span>';
-            } else if (hp === 3) {
-                baseHpEl.innerHTML = '<span style="color:#10b981; font-weight:900; font-size:1.15rem;">🛡️ 3/3</span>';
-            } else if (hp === 2) {
-                baseHpEl.innerHTML = '<span style="color:#f59e0b; font-weight:900; font-size:1.15rem;">🛡️ 2/3</span>';
+                baseHpEl.innerHTML = '<span style="color:#ef4444; font-weight:900; font-size:1.15rem;">☠ 0/5</span>';
+            } else if (hp >= 4) {
+                baseHpEl.innerHTML = `<span style="color:#10b981; font-weight:900; font-size:1.15rem;">🛡️ ${hp}/5</span>`;
+            } else if (hp >= 2) {
+                baseHpEl.innerHTML = `<span style="color:#f59e0b; font-weight:900; font-size:1.15rem;">🛡️ ${hp}/5</span>`;
             } else {
-                baseHpEl.innerHTML = '<span style="color:#ef4444; font-weight:900; font-size:1.15rem; animation:pulse 0.6s infinite alternate;">⚠️ 1/3</span>';
+                baseHpEl.innerHTML = `<span style="color:#ef4444; font-weight:900; font-size:1.15rem; animation:pulse 0.6s infinite alternate;">⚠️ ${hp}/5</span>`;
             }
         }
 
@@ -634,6 +713,15 @@ export class TankGame {
     }
 
     draw() {
+        this.ctx.save();
+
+        // 震屏视觉效果 (大炸弹或受击震感)
+        if (this.screenShake > 0) {
+            const sx = (Math.random() - 0.5) * this.screenShake;
+            const sy = (Math.random() - 0.5) * this.screenShake;
+            this.ctx.translate(sx, sy);
+        }
+
         // 清屏
         this.ctx.fillStyle = '#0a0a0c';
         this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
@@ -644,8 +732,10 @@ export class TankGame {
         // 2. 道具
         this.powerUps.forEach(p => p.draw(this.ctx));
 
-        // 3. 敌方坦克
-        this.enemies.forEach(e => e.draw(this.ctx));
+        // 3. 敌方坦克 (只渲染存活坦克，规避异常)
+        this.enemies.forEach(e => {
+            if (e.active) e.draw(this.ctx);
+        });
 
         // 4. 玩家坦克
         if (this.player && this.player.active) {
@@ -656,10 +746,48 @@ export class TankGame {
         this.playerBullets.forEach(b => b.draw(this.ctx));
         this.enemyBullets.forEach(b => b.draw(this.ctx));
 
-        // 6. 爆炸碎屑与火花粒子
+        // 6. 爆炸碎屑与冲击波粒子
         this.particles.draw(this.ctx);
 
-        // 7. 暂停时画面半透明提示
+        this.ctx.restore();
+
+        // 7. 全屏白光/火光核爆闪烁效果
+        if (this.screenFlashTimer > 0) {
+            this.ctx.save();
+            const flashAlpha = Math.min(0.85, (this.screenFlashTimer / 0.45) * 0.85);
+            this.ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+            this.ctx.restore();
+        }
+
+        // 8. 吃到大炸弹横幅提示特效
+        if (this.nukeBannerTimer > 0) {
+            this.ctx.save();
+            const bannerAlpha = Math.min(1, this.nukeBannerTimer / 0.4);
+            this.ctx.globalAlpha = bannerAlpha;
+
+            const boxW = 340;
+            const boxH = 46;
+            const boxX = this.logicalWidth / 2 - boxW / 2;
+            const boxY = 48;
+
+            this.ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+            this.ctx.fillRect(boxX, boxY, boxW, boxH);
+            this.ctx.strokeStyle = '#ef4444';
+            this.ctx.lineWidth = 2.5;
+            this.ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+            this.ctx.font = '900 20px "Arial Black", -apple-system, sans-serif';
+            this.ctx.fillStyle = '#fef08a';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.shadowColor = '#ef4444';
+            this.ctx.shadowBlur = 10;
+            this.ctx.fillText('💣 全场敌军坦克被消灭！', this.logicalWidth / 2, boxY + boxH / 2);
+            this.ctx.restore();
+        }
+
+        // 9. 暂停时画面半透明提示
         if (this.isPaused) {
             this.ctx.save();
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
@@ -682,8 +810,17 @@ export class TankGame {
         const dt = Math.min((currentTime - this.lastTime) / 1000, 0.1);
         this.lastTime = currentTime;
 
-        this.update(dt);
-        this.draw();
+        try {
+            this.update(dt);
+        } catch (err) {
+            console.error('Game update error:', err);
+        }
+
+        try {
+            this.draw();
+        } catch (err) {
+            console.error('Game draw error:', err);
+        }
 
         requestAnimationFrame(this.loop);
     }

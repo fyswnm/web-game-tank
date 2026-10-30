@@ -17,8 +17,8 @@ export class GameMap {
         this.grid = [];
         this.baseX = 7;
         this.baseY = 14;
-        this.maxBaseHp = 3;
-        this.baseHp = 3;
+        this.maxBaseHp = 5;
+        this.baseHp = 5;
         this.baseDestroyed = false;
         this.baseHitFlashTimer = 0;
 
@@ -298,7 +298,7 @@ export class GameMap {
         // 3. 背景暗纹：半透明老鹰图腾 (保留经典坦克老家底蕴)
         ctx.save();
         ctx.globalAlpha = 0.28;
-        ctx.fillStyle = this.baseHp === 1 ? '#ef4444' : '#f0b429';
+        ctx.fillStyle = this.baseHp <= 2 ? '#ef4444' : '#f0b429';
         ctx.beginPath();
         const eagleY = cy + 2;
         ctx.moveTo(cx, eagleY - 14);
@@ -311,11 +311,11 @@ export class GameMap {
         ctx.fill();
         ctx.restore();
 
-        // 4. 老家顶部：3格高亮精准血槽 (Health Bar)
+        // 4. 老家顶部：5格高亮精准血槽 (Health Bar)
         const barX = x + 3;
         const barY = y + 3;
         const totalBarW = 42;
-        const segW = 12;
+        const segW = 6.8;
         const segGap = 2;
         const segH = 5;
 
@@ -325,8 +325,8 @@ export class GameMap {
         for (let i = 0; i < this.maxBaseHp; i++) {
             const sx = barX + i * (segW + segGap);
             if (i < this.baseHp) {
-                if (this.baseHp === 3) ctx.fillStyle = '#10b981';
-                else if (this.baseHp === 2) ctx.fillStyle = '#f59e0b';
+                if (this.baseHp >= 4) ctx.fillStyle = '#10b981';
+                else if (this.baseHp >= 2) ctx.fillStyle = '#f59e0b';
                 else ctx.fillStyle = '#ef4444';
             } else {
                 ctx.fillStyle = '#334155';
