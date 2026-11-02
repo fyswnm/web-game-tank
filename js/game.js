@@ -1,12 +1,12 @@
 // Main Game Controller
-import { sound } from './audio.js?v=6';
-import { GameMap, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=6';
-import { PlayerTank, EnemyTank, DIRECTION } from './tank.js?v=6';
-import { ParticleSystem } from './particles.js?v=6';
-import { PowerUp, BUFF_TYPE } from './powerup.js?v=6';
-import { findPath } from './pathfinding.js?v=6';
-import { TankPainter } from './paint.js?v=6';
-import { VirtualJoystick } from './joystick.js?v=6';
+import { sound } from './audio.js?v=7';
+import { GameMap, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=7';
+import { PlayerTank, EnemyTank, DIRECTION } from './tank.js?v=7';
+import { ParticleSystem } from './particles.js?v=7';
+import { PowerUp, BUFF_TYPE } from './powerup.js?v=7';
+import { findPath } from './pathfinding.js?v=7';
+import { TankPainter } from './paint.js?v=7';
+import { VirtualJoystick } from './joystick.js?v=7';
 
 export class TankGame {
     constructor() {

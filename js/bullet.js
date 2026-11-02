@@ -1,6 +1,6 @@
 // Bullet class with collision detection and bullet-bullet canceling
-import { TILE_SIZE, TILE_TYPE } from './map.js?v=6';
-import { sound } from './audio.js?v=6';
+import { TILE_SIZE, TILE_TYPE } from './map.js?v=7';
+import { sound } from './audio.js?v=7';
 
 export class Bullet {
     constructor(x, y, dirAngle, speed, isPlayer = false, canBreakStone = false) {

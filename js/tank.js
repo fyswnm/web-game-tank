@@ -1,7 +1,7 @@
 // Tank base, PlayerTank, and EnemyTank
-import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=6';
-import { Bullet } from './bullet.js?v=6';
-import { BUFF_TYPE } from './powerup.js?v=6';
+import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=7';
+import { Bullet } from './bullet.js?v=7';
+import { BUFF_TYPE } from './powerup.js?v=7';
 
 export const DIRECTION = {
     UP: -Math.PI / 2,
@@ -485,16 +485,16 @@ export class EnemyTank extends Tank {
                 this.bodyColor = '#991b1b';
                 this.turretColor = '#dc2626';
                 break;
-            case 'hard': // 高级
+            case 'hard': // 高级 (射击频率与普通版一致)
                 this.baseSpeed = 95;
-                this.shootCooldown = 1.1;
+                this.shootCooldown = 1.6;
                 this.hp = 2; // 耐打
                 this.bodyColor = '#831843';
                 this.turretColor = '#db2777';
                 break;
-            case 'expert': // 困难
+            case 'expert': // 困难 (射击频率与普通版一致)
                 this.baseSpeed = 120;
-                this.shootCooldown = 0.75;
+                this.shootCooldown = 1.6;
                 this.hp = 3;
                 this.bodyColor = '#312e81';
                 this.turretColor = '#6366f1';

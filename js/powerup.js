@@ -1,5 +1,5 @@
 // Power-up collectibles and buffs
-import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=6';
+import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=7';
 
 export const BUFF_TYPE = {
     FORTRESS: 'fortress',       // 老家铁壁无敌
