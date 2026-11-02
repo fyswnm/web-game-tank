@@ -1,12 +1,13 @@
 // Power-up collectibles and buffs
-import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=3';
+import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=6';
 
 export const BUFF_TYPE = {
     FORTRESS: 'fortress',       // 老家铁壁无敌
     POWER_SHELL: 'powershell',  // 穿石强力弹
     SHIELD: 'shield',           // 自身无敌护盾
     SPEED: 'speed',             // 自身加速
-    BOMB: 'bomb'                // 全屏大炸弹 (清屏消灭所有敌军)
+    BOMB: 'bomb',               // 全屏大炸弹 (清屏消灭所有敌军)
+    LASER: 'laser'              // 激光射线 (持续10s前方直线摧毁敌军，不破坏地形)
 };
 
 export class PowerUp {
@@ -92,6 +93,12 @@ export class PowerUp {
                 ctx.font = 'bold 20px sans-serif';
                 ctx.fillText('💣', 0, 1);
                 break;
+            case BUFF_TYPE.LASER:
+                // 激光射线
+                ctx.fillStyle = '#00e5ff';
+                ctx.font = 'bold 18px sans-serif';
+                ctx.fillText('🔫', 0, 1);
+                break;
         }
 
         ctx.restore();
@@ -104,6 +111,7 @@ export class PowerUp {
             case BUFF_TYPE.SHIELD: return '#60a5fa';
             case BUFF_TYPE.SPEED: return '#34d399';
             case BUFF_TYPE.BOMB: return '#ef4444';
+            case BUFF_TYPE.LASER: return '#00e5ff';
             default: return '#ffffff';
         }
     }
@@ -122,11 +130,14 @@ export class PowerUp {
 
         const tile = emptyTiles[Math.floor(Math.random() * emptyTiles.length)];
         
-        // 提高大炸弹(BOMB)的抽取权重（例如权重约30%），其余Buff均匀分布
+        // 提高大炸弹(BOMB)和激光(LASER)的抽取权重，其余Buff均匀分布
         const weightedTypes = [
             BUFF_TYPE.BOMB,
             BUFF_TYPE.BOMB,
             BUFF_TYPE.BOMB,
+            BUFF_TYPE.LASER,
+            BUFF_TYPE.LASER,
+            BUFF_TYPE.LASER,
             BUFF_TYPE.FORTRESS,
             BUFF_TYPE.POWER_SHELL,
             BUFF_TYPE.SHIELD,

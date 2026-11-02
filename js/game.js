@@ -1,12 +1,12 @@
 // Main Game Controller
-import { sound } from './audio.js?v=3';
-import { GameMap, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=3';
-import { PlayerTank, EnemyTank, DIRECTION } from './tank.js?v=3';
-import { ParticleSystem } from './particles.js?v=3';
-import { PowerUp, BUFF_TYPE } from './powerup.js?v=3';
-import { findPath } from './pathfinding.js?v=3';
-import { TankPainter } from './paint.js?v=3';
-import { VirtualJoystick } from './joystick.js?v=3';
+import { sound } from './audio.js?v=6';
+import { GameMap, TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=6';
+import { PlayerTank, EnemyTank, DIRECTION } from './tank.js?v=6';
+import { ParticleSystem } from './particles.js?v=6';
+import { PowerUp, BUFF_TYPE } from './powerup.js?v=6';
+import { findPath } from './pathfinding.js?v=6';
+import { TankPainter } from './paint.js?v=6';
+import { VirtualJoystick } from './joystick.js?v=6';
 
 export class TankGame {
     constructor() {
@@ -49,6 +49,11 @@ export class TankGame {
         this.screenShake = 0;
         this.screenFlashTimer = 0;
         this.nukeBannerTimer = 0;
+        this.laserBannerTimer = 0;
+
+        // 激光 Buff 相关计时器
+        this.laserDamageTick = 0;   // 激光伤害间隔 (每 0.3 秒对射线内敌人造成 1 点伤害)
+        this.laserHumTick = 0;      // 激光嗡鸣音效间隔
 
         // 手绘涂装管理器 (打开涂装时自动暂停，关闭时恢复)
         this.painter = new TankPainter(
@@ -97,6 +102,9 @@ export class TankGame {
         this.screenShake = 0;
         this.screenFlashTimer = 0;
         this.nukeBannerTimer = 0;
+        this.laserBannerTimer = 0;
+        this.laserDamageTick = 0;
+        this.laserHumTick = 0;
 
         // 初始化玩家坦克 (出生在老家左侧空地)
         this.spawnPlayer();
@@ -361,6 +369,9 @@ export class TankGame {
         if (this.nukeBannerTimer > 0) {
             this.nukeBannerTimer = Math.max(0, this.nukeBannerTimer - dt);
         }
+        if (this.laserBannerTimer > 0) {
+            this.laserBannerTimer = Math.max(0, this.laserBannerTimer - dt);
+        }
 
         // 1. 地图更新 (老家防御墙倒计时等)
         this.gameMap.update(dt);
@@ -395,6 +406,9 @@ export class TankGame {
 
         // 4. 子弹更新与碰撞检测
         this.updateBullets(dt);
+
+        // 4.5 激光 Buff：持续射线伤害 (不破坏地形，只杀前方直线上的敌军)
+        this.updateLaser(dt);
 
         // 5. 定时空投新道具机制 (每 3 秒自动在地图刷新一个 Buff，场上最多同时 6 个)
         this.buffDropTimer -= dt;
@@ -572,6 +586,133 @@ export class TankGame {
         }
     }
 
+    getLaserRay() {
+        if (!this.player || !this.player.active) return null;
+
+        const dirX = Math.cos(this.player.angle);
+        const dirY = Math.sin(this.player.angle);
+
+        // 炮口起始点
+        const barrelLength = this.player.size / 2 + 8;
+        const startX = this.player.x + dirX * barrelLength;
+        const startY = this.player.y + dirY * barrelLength;
+
+        // 步进检测障碍物 (4px 步长，保证精准触碰墙面即截断)
+        let maxDist = 1100;
+        let hitSolid = false;
+        const step = 4;
+        for (let d = 0; d <= 1100; d += step) {
+            const cx = startX + dirX * d;
+            const cy = startY + dirY * d;
+            const col = Math.floor(cx / TILE_SIZE);
+            const row = Math.floor(cy / TILE_SIZE);
+
+            // 超出地图边界
+            if (col < 0 || col >= this.gameMap.cols || row < 0 || row >= this.gameMap.rows) {
+                maxDist = d;
+                break;
+            }
+
+            // 撞到木墙、石墙或老家（不摧毁它们，直接截断激光）
+            if (this.gameMap.isSolid(col, row)) {
+                maxDist = d;
+                hitSolid = true;
+                break;
+            }
+        }
+
+        const endX = startX + dirX * maxDist;
+        const endY = startY + dirY * maxDist;
+
+        return { startX, startY, endX, endY, dirX, dirY, maxDist, hitSolid };
+    }
+
+    updateLaser(dt) {
+        if (!this.player || !this.player.active || this.player.laserTimer <= 0) return;
+
+        const laser = this.getLaserRay();
+        if (!laser) return;
+
+        // 持续播放柔和激光嗡鸣音效
+        this.laserHumTick -= dt;
+        if (this.laserHumTick <= 0) {
+            this.laserHumTick = 0.32;
+            sound.playLaserHum();
+        }
+
+        // 1. 实时抵消敌方子弹 (只要敌弹进入激光截面立即消融)
+        for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+            const eb = this.enemyBullets[i];
+            if (!eb.active) continue;
+
+            const toX = eb.x - laser.startX;
+            const toY = eb.y - laser.startY;
+
+            const projDist = toX * laser.dirX + toY * laser.dirY;
+            // 必须在激光发射起点和撞墙截断点之间
+            if (projDist >= 0 && projDist <= laser.maxDist) {
+                const perpDist = Math.abs(toX * (-laser.dirY) + toY * laser.dirX);
+                // 激光有效抵消宽度 (激光线宽 + 子弹半径)
+                if (perpDist < eb.radius + 9) {
+                    eb.active = false;
+                    sound.playBulletClash();
+                    this.particles.createClashEffect(eb.x, eb.y);
+                }
+            }
+        }
+        this.enemyBullets = this.enemyBullets.filter(b => b.active);
+
+        // 2. 每 0.3 秒一次伤害判定 (对射线有效范围内全部敌军各扣 1 HP，墙后敌军受掩体保护)
+        this.laserDamageTick -= dt;
+        if (this.laserDamageTick <= 0) {
+            this.laserDamageTick = 0.3;
+
+            for (let i = this.enemies.length - 1; i >= 0; i--) {
+                const enemy = this.enemies[i];
+                if (!enemy.active) continue;
+
+                const toX = enemy.x - laser.startX;
+                const toY = enemy.y - laser.startY;
+
+                const projDist = toX * laser.dirX + toY * laser.dirY;
+                // 必须在激光前方且在遇到障碍物之前 (不能穿过木头或石墙)
+                if (projDist < 0 || projDist > laser.maxDist) continue;
+
+                // 垂直于射线的距离 (判定宽度 = 敌人半径 + 激光半宽4px)
+                const perpDist = Math.abs(toX * (-laser.dirY) + toY * laser.dirX);
+                if (perpDist < enemy.size / 2 + 4) {
+                    enemy.hp--;
+                    // 命中电弧火花
+                    this.particles.createExplosion(enemy.x, enemy.y, '#00e5ff', 6, 0.7);
+                    sound.playLaserHit();
+
+                    if (enemy.hp <= 0) {
+                        enemy.active = false;
+                        this.enemiesDefeated++;
+                        this.score += enemy.maxHp * 150;
+                        sound.playExplosion(true);
+                        this.particles.createExplosion(enemy.x, enemy.y, '#00e5ff', 22, 1.6);
+                        this.particles.createExplosion(enemy.x, enemy.y, '#ffffff', 12, 1.0);
+
+                        // 掉落道具
+                        if (enemy.isCarrier || Math.random() < 0.7) {
+                            const p = PowerUp.spawnRandom(this.gameMap);
+                            if (p) this.powerUps.push(p);
+                        }
+                    }
+                }
+            }
+
+            // 清理已阵亡敌军
+            this.enemies = this.enemies.filter(e => e.active);
+
+            // 胜负检测
+            if (this.enemiesDefeated >= this.totalEnemiesToSpawn && this.enemies.length === 0 && !this.isVictory) {
+                this.triggerVictory();
+            }
+        }
+    }
+
     applyPowerUp(type, x, y) {
         sound.playPowerUp();
         this.score += 200;
@@ -600,6 +741,14 @@ export class TankGame {
             case BUFF_TYPE.BOMB:
                 // 全场大炸弹清屏
                 this.triggerNukeBomb(x, y);
+                break;
+            case BUFF_TYPE.LASER:
+                // 激光射线 (持续10s前方直线摧毁敌军)
+                this.player.applyBuff(BUFF_TYPE.LASER);
+                this.laserDamageTick = 0;
+                this.laserHumTick = 0;
+                this.laserBannerTimer = 2.0;
+                this.particles.createBuffPickupEffect(x, y, '#00e5ff');
                 break;
         }
     }
@@ -708,6 +857,9 @@ export class TankGame {
             if (this.player.speedTimer > 0) {
                 html += `<span class="buff-tag speed">⚡ 极速机动: ${Math.ceil(this.player.speedTimer)}s</span>`;
             }
+            if (this.player.laserTimer > 0) {
+                html += `<span class="buff-tag laser">⚡ 离子激光: ${Math.ceil(this.player.laserTimer)}s</span>`;
+            }
             buffContainer.innerHTML = html;
         }
     }
@@ -740,6 +892,11 @@ export class TankGame {
         // 4. 玩家坦克
         if (this.player && this.player.active) {
             this.player.draw(this.ctx);
+        }
+
+        // 4.5 激光射线视觉特效 (从炮口延伸到画布边缘的高能光束)
+        if (this.player && this.player.active && this.player.laserTimer > 0) {
+            this.drawLaserBeam();
         }
 
         // 5. 炮弹 (包含相互抵消特效)
@@ -787,6 +944,33 @@ export class TankGame {
             this.ctx.restore();
         }
 
+        // 8.5 吃到激光横幅提示特效
+        if (this.laserBannerTimer > 0) {
+            this.ctx.save();
+            const bannerAlpha = Math.min(1, this.laserBannerTimer / 0.4);
+            this.ctx.globalAlpha = bannerAlpha;
+
+            const boxW = 340;
+            const boxH = 46;
+            const boxX = this.logicalWidth / 2 - boxW / 2;
+            const boxY = 48;
+
+            this.ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+            this.ctx.fillRect(boxX, boxY, boxW, boxH);
+            this.ctx.strokeStyle = '#00e5ff';
+            this.ctx.lineWidth = 2.5;
+            this.ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+            this.ctx.font = '900 20px "Arial Black", -apple-system, sans-serif';
+            this.ctx.fillStyle = '#67e8f9';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.shadowColor = '#00e5ff';
+            this.ctx.shadowBlur = 10;
+            this.ctx.fillText('⚡ 离子激光启动！持续 10 秒', this.logicalWidth / 2, boxY + boxH / 2);
+            this.ctx.restore();
+        }
+
         // 9. 暂停时画面半透明提示
         if (this.isPaused) {
             this.ctx.save();
@@ -804,6 +988,83 @@ export class TankGame {
             this.ctx.fillText('点击右上角「继续」或按 P 键继续作战', this.logicalWidth / 2, this.logicalHeight / 2 + 25);
             this.ctx.restore();
         }
+    }
+
+    drawLaserBeam() {
+        if (!this.player || !this.player.active) return;
+
+        const laser = this.getLaserRay();
+        if (!laser) return;
+
+        const { startX, startY, endX, endY, hitSolid } = laser;
+
+        this.ctx.save();
+
+        // 1. 炮口发射核心高能光斑与脉冲圈
+        const muzzlePulse = Math.sin(Date.now() / 35) * 2 + 8;
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.shadowColor = '#00e5ff';
+        this.ctx.shadowBlur = 18;
+        this.ctx.beginPath();
+        this.ctx.arc(startX, startY, muzzlePulse, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 炮口外圈电光晕
+        this.ctx.strokeStyle = '#00e5ff';
+        this.ctx.lineWidth = 3;
+        this.ctx.beginPath();
+        this.ctx.arc(startX, startY, muzzlePulse + 5, 0, Math.PI * 2);
+        this.ctx.stroke();
+
+        // 2. 激光光束 - 外层高能离子辉光
+        const glowWidth = 18 + Math.sin(Date.now() / 45) * 4;
+        this.ctx.strokeStyle = 'rgba(0, 229, 255, 0.35)';
+        this.ctx.lineWidth = glowWidth;
+        this.ctx.lineCap = 'round';
+        this.ctx.shadowColor = '#00e5ff';
+        this.ctx.shadowBlur = 20;
+        this.ctx.beginPath();
+        this.ctx.moveTo(startX, startY);
+        this.ctx.lineTo(endX, endY);
+        this.ctx.stroke();
+
+        // 3. 激光光束 - 中层高亮电弧束
+        const midWidth = 8 + Math.sin(Date.now() / 30) * 2;
+        this.ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+        this.ctx.lineWidth = midWidth;
+        this.ctx.shadowBlur = 10;
+        this.ctx.beginPath();
+        this.ctx.moveTo(startX, startY);
+        this.ctx.lineTo(endX, endY);
+        this.ctx.stroke();
+
+        // 4. 激光光束 - 核心炽热白光
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 3.5;
+        this.ctx.shadowBlur = 4;
+        this.ctx.beginPath();
+        this.ctx.moveTo(startX, startY);
+        this.ctx.lineTo(endX, endY);
+        this.ctx.stroke();
+
+        // 5. 撞击墙体/障碍物时的等离子溅射光斑 (不能穿过木头或石墙的撞击反馈)
+        if (hitSolid) {
+            const hitPulse = Math.sin(Date.now() / 40) * 3 + 9;
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.shadowColor = '#00e5ff';
+            this.ctx.shadowBlur = 22;
+            this.ctx.beginPath();
+            this.ctx.arc(endX, endY, hitPulse, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            this.ctx.strokeStyle = '#00e5ff';
+            this.ctx.lineWidth = 2.5;
+            this.ctx.beginPath();
+            this.ctx.arc(endX, endY, hitPulse + 6, 0, Math.PI * 2);
+            this.ctx.stroke();
+        }
+
+        this.ctx.restore();
     }
 
     loop(currentTime) {

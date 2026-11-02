@@ -1,7 +1,7 @@
 // Tank base, PlayerTank, and EnemyTank
-import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=3';
-import { Bullet } from './bullet.js?v=3';
-import { BUFF_TYPE } from './powerup.js?v=3';
+import { TILE_SIZE, MAP_COLS, MAP_ROWS } from './map.js?v=6';
+import { Bullet } from './bullet.js?v=6';
+import { BUFF_TYPE } from './powerup.js?v=6';
 
 export const DIRECTION = {
     UP: -Math.PI / 2,
@@ -247,6 +247,7 @@ export class PlayerTank extends Tank {
         this.shieldTimer = 0;       // 自身无敌
         this.powerShellTimer = 0;   // 炮弹穿石
         this.speedTimer = 0;        // 自身加速
+        this.laserTimer = 0;        // 激光射线
 
         // 自定义涂装贴图画布与炮台颜色
         this.customSkinCanvas = null;
@@ -282,6 +283,9 @@ export class PlayerTank extends Tank {
             case BUFF_TYPE.SPEED:
                 this.speedTimer = 12; // 12秒极速
                 break;
+            case BUFF_TYPE.LASER:
+                this.laserTimer = 10; // 10秒激光射线
+                break;
         }
     }
 
@@ -291,6 +295,7 @@ export class PlayerTank extends Tank {
         // 更新 Buff
         if (this.shieldTimer > 0) this.shieldTimer -= dt;
         if (this.powerShellTimer > 0) this.powerShellTimer -= dt;
+        if (this.laserTimer > 0) this.laserTimer -= dt;
 
         if (this.speedTimer > 0) {
             this.speedTimer -= dt;

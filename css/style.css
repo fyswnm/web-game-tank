@@ -166,6 +166,11 @@ body {
     border: 1px solid #10b981;
     color: #6ee7b7;
 }
+.buff-tag.laser {
+    background: rgba(6, 182, 212, 0.25);
+    border: 1px solid #06b6d4;
+    color: #67e8f9;
+}
 
 @keyframes pulse {
     0% { opacity: 0.75; transform: scale(0.97); }

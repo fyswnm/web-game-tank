@@ -140,6 +140,89 @@ class SoundFX {
         }
     }
 
+    playLaserHum() {
+        // 柔和科幻能量光束嗡鸣 (温润的中低频双振荡，低通滤波杜绝尖锐刺耳感)
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        try {
+            const now = this.ctx.currentTime;
+            const duration = 0.36;
+
+            // 1. 低通滤波器 (过滤 600Hz 以上的所有毛刺高频)
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(550, now);
+
+            // 2. 总音量平缓包络 (低音量，柔和平滑淡入淡出，无任何冲击和破音)
+            const mainGain = this.ctx.createGain();
+            mainGain.gain.setValueAtTime(0.001, now);
+            mainGain.gain.linearRampToValueAtTime(0.045, now + 0.08);
+            mainGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+            // 3. 主音：温和正弦波 (280Hz -> 250Hz)
+            const osc = this.ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(280, now);
+            osc.frequency.exponentialRampToValueAtTime(250, now + duration);
+
+            // 4. 次谐波：厚重三角波底蕴 (140Hz)
+            const subOsc = this.ctx.createOscillator();
+            subOsc.type = 'triangle';
+            subOsc.frequency.setValueAtTime(140, now);
+            subOsc.frequency.exponentialRampToValueAtTime(125, now + duration);
+
+            osc.connect(filter);
+            subOsc.connect(filter);
+            filter.connect(mainGain);
+            mainGain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + duration);
+            subOsc.start(now);
+            subOsc.stop(now + duration);
+        } catch (e) {
+            console.warn('playLaserHum audio error:', e);
+        }
+    }
+
+    playLaserHit() {
+        // 柔和能量灼烧消融音 (温润的能量脉冲，不刺耳)
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        try {
+            const now = this.ctx.currentTime;
+            const duration = 0.14;
+
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(420, now);
+            osc.frequency.exponentialRampToValueAtTime(160, now + duration);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(650, now);
+
+            gain.gain.setValueAtTime(0.001, now);
+            gain.gain.linearRampToValueAtTime(0.07, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + duration);
+        } catch (e) {
+            console.warn('playLaserHit audio error:', e);
+        }
+    }
+
     playNukeBomb() {
         if (!this.enabled) return;
         this.init();
